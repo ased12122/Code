@@ -8,8 +8,8 @@
 // Tested on 17 September 2019
 // ---------------------------------------------------------------- //
 
-#define echoPin 32 
-#define trigPin 33 
+#define echoPin 2
+#define trigPin 3 
 
 // defines variables
 long duration; // variable for the duration of sound wave travel
