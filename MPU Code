@@ -1,0 +1,83 @@
+
+#define I2C_SLAVE_ADDR 0x04 // 4 in hexadecimal
+#define LED_PIN 17   // ESP32 pin GIOP17 connected to LED's pin
+#define TRIG_PIN 26  // ESP32 pin GIOP26 connected to Ultrasonic Sensor's TRIG pin
+#define ECHO_PIN 27  // ESP32 pin GIOP27 connected to Ultrasonic Sensor's ECHO pin
+#define LEDHC_PIN 17 // ESP32 pin GIOP17 connected to LED's pin
+#define Distance_THRESHOLD 50  //CENTIMETERS
+#define enA 5  // enableA command line  - should be PWM pin
+#define enB 6  // enableB command line  - should be PWM pin
+
+int steeringAngle; //stores servo position 
+
+MPU6050  mpu6050(Wire);
+long timer = 0;
+float duration_us, distance_cm;
+
+void setup()
+{
+  Serial.begin(9600);
+  Wire.begin();   // join i2c bus (address optional for the master) - on the Arduino NANO the default I2C pins are A4 (SDA), A5 (SCL)
+  mpu6050.begin():
+  mpu6050.calcGyroOffsets(true);
+  pinMode(LED_PIN)
+}
+
+// the minimum and maximum values here are determined by the amount of bits used by the chosen variable type
+// for int, this is either 16-bits or 32-bits
+// due to two's complement, the minimum value is -2^(N-1), and the maximum is (2^(N-1))-1; where N is the number of bits
+int x = 200;
+int y = 200;
+int z = 90; //angle 
+
+void loop()
+{
+    mpu6050.update();
+
+  if(millis() - timer > 1000){
+    
+    Serial.println("=======================================================");
+    Serial.print("temp : ");Serial.println(mpu6050.getTemp());
+    Serial.print("accX : ");Serial.print(mpu6050.getAccX());
+    Serial.print("\taccY : ");Serial.print(mpu6050.getAccY());
+    Serial.print("\taccZ : ");Serial.println(mpu6050.getAccZ());
+  
+    Serial.print("gyroX : ");Serial.print(mpu6050.getGyroX());
+    Serial.print("\tgyroY : ");Serial.print(mpu6050.getGyroY());
+    Serial.print("\tgyroZ : ");Serial.println(mpu6050.getGyroZ());
+  
+    Serial.print("accAngleX : ");Serial.print(mpu6050.getAccAngleX());
+    Serial.print("\taccAngleY : ");Serial.println(mpu6050.getAccAngleY());
+  
+    Serial.print("gyroAngleX : ");Serial.print(mpu6050.getGyroAngleX());
+    Serial.print("\tgyroAngleY : ");Serial.print(mpu6050.getGyroAngleY());
+    Serial.print("\tgyroAngleZ : ");Serial.println(mpu6050.getGyroAngleZ());
+    
+    Serial.print("angleX : ");Serial.print(mpu6050.getAngleX());
+    Serial.print("\tangleY : ");Serial.print(mpu6050.getAngleY());
+    Serial.print("\tangleZ : ");Serial.println(mpu6050.getAngleZ());
+    Serial.println("=======================================================\n");
+    timer = millis();
+    
+  }
+
+  Wire.beginTransmission(I2C_SLAVE_ADDR); // transmit to device #4
+  /* depending on the mirocontroller, the int variable is stored as 32-bits or 16-bits
+     if you want to increase the value range, first use a suitable variable type and then modify the code below
+     for example; if the variable used to store x and y is 32-bits and you want to use signed values between -2^31 and (2^31)-1
+     uncomment the four lines below relating to bits 32-25 and 24-17 for x and y
+     for my microcontroller, int is 32-bits hence x and y are AND operated with a 32 bit hexadecimal number - change this if needed
+
+     >> X refers to a shift right operator by X bits
+  */
+  //Wire.write((byte)((x & 0xFF000000) >> 24)); // bits 32 to 25 of x
+  //Wire.write((byte)((x & 0x00FF0000) >> 16)); // bits 24 to 17 of x
+  Wire.write((byte)((x & 0x0000FF00) >> 8));    // first byte of x, containing bits 16 to 9
+  Wire.write((byte)(x & 0x000000FF));           // second byte of x, containing the 8 LSB - bits 8 to 1
+  Wire.write((byte)((y & 0x0000FF00) >> 8));    // first byte of x, containing bits 16 to 9
+  Wire.write((byte)(y & 0x000000FF)); 
+  Wire.write((byte)((z & 0x0000FF00) >> 8));    // first byte of x, containing bits 16 to 9
+  Wire.write((byte)(z & 0x000000FF));         
+  Wire.endTransmission();   // stop transmitting
+  delay(100);
+}
