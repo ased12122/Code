@@ -1,0 +1,257 @@
+#define trigPin 32 
+#define echoPin 33
+#include <math.h>
+
+#include <MPU6050_tockn.h>
+
+#include <Wire.h>
+
+MPU6050 mpu6050(Wire);
+
+#define I2C_SLAVE_ADDR 0x04
+
+int angle = 0;
+
+int distance = 999;
+
+long duration;
+
+float distancecm;
+
+int leftMotor_speed, rightMotor_speed, servoAngle;
+
+int x = 0;
+
+void setup()
+
+{
+
+  Serial.begin(9600);
+
+  Wire.begin();   // join i2c bus (address optional for the master) - on the Arduino NANO the default I2C pins are A4 (SDA), A5 (SCL)
+
+  pinMode(trigPin, OUTPUT); 
+
+  pinMode(echoPin, INPUT); 
+
+  mpu6050.begin();
+
+  mpu6050.calcGyroOffsets(true);
+
+}
+
+ 
+
+void loop()
+
+{
+
+  //Forward 1 second
+
+  leftMotor_speed = 255;
+
+  rightMotor_speed = 159;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  delay(1000);
+
+  //stop
+
+  leftMotor_speed = 0;
+
+  rightMotor_speed = 0;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  delay(1000);
+
+  //Rotate 180 degrees
+
+  leftMotor_speed = 150;
+
+  rightMotor_speed = 50;
+
+  servoAngle = 100;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  while (angle > -180) {
+
+    angle = gyroscope();
+
+  }
+
+  //stop
+
+  leftMotor_speed = 0;
+
+  rightMotor_speed = 0;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  delay(1000);
+
+  //reverse until 10cm away from wall
+
+  leftMotor_speed = -100;
+
+  rightMotor_speed = -70;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  do {
+
+    distance = ultrasonic();
+
+    delay(100);
+
+  }
+
+  while (distance >= 10);
+
+  distance = 999;
+
+  //stop
+
+  leftMotor_speed = 0;
+
+  rightMotor_speed = 0;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  delay(100);
+
+  //Rotate 90 degrees
+
+  leftMotor_speed = 50;
+
+  rightMotor_speed = 150;
+
+  servoAngle = 65;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  while (angle < -90) {
+
+    angle = gyroscope();
+
+  }
+
+  //stop
+
+  leftMotor_speed = 0;
+
+  rightMotor_speed = 0;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  delay(1000);
+
+  //reverse untill 10cm from wall
+
+  leftMotor_speed = -100;
+
+  rightMotor_speed = -70;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  do {
+
+    distance = ultrasonic();
+
+    delay(100);
+
+  }
+
+  while (distance >= 10);
+
+  distance = 999;
+
+  //stop
+
+  leftMotor_speed = 0;
+
+  rightMotor_speed = 0;
+
+  servoAngle = 75;
+
+  Transmit_to_arduino(leftMotor_speed, rightMotor_speed, servoAngle);
+
+  delay(10000000000000000);
+
+}
+
+ 
+
+void Transmit_to_arduino(int leftMotor_speed, int rightMotor_speed, int servoAngle)
+
+{
+
+  Wire.beginTransmission(I2C_SLAVE_ADDR); // transmit to device #4
+
+  Wire.write((byte)((leftMotor_speed & 0x0000FF00) >> 8));    // first byte of x, containing bits 16 to 9
+
+  Wire.write((byte)(leftMotor_speed & 0x000000FF));           // second byte of x, containing the 8 LSB - bits 8 to 1
+
+  Wire.write((byte)((rightMotor_speed & 0x0000FF00) >> 8));   // first byte of y, containing bits 16 to 9
+
+  Wire.write((byte)(rightMotor_speed & 0x000000FF));          // second byte of y, containing the 8 LSB - bits 8 to 1
+
+  Wire.write((byte)((servoAngle & 0x0000FF00) >> 8));    // first byte of x, containing bits 16 to 9
+
+  Wire.write((byte)(servoAngle & 0x000000FF));
+
+  Wire.endTransmission();   // stop transmitting
+
+}
+
+ 
+
+float gyroscope()
+
+{
+
+  mpu6050.update();
+
+  return (mpu6050.getAngleZ());
+
+}
+
+ 
+
+float ultrasonic()
+
+{
+
+  float distance;
+
+  digitalWrite(trigPin, LOW);
+
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+
+  delayMicroseconds(10);
+
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH);
+
+  return (duration * 0.034 / 2);
+
+}
