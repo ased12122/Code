@@ -1,0 +1,222 @@
+#define L1Pin 14
+#define L2Pin 27
+#define M1Pin 26
+#define M2Pin 25
+#define R1Pin 35
+#define R2Pin 34
+#include <Wire.h>
+#define I2C_SLAVE_ADDR 0x04
+
+int leftMotor_speed, rightMotor_speed, servoAngle;
+
+float L1, L2, M1, M2, R1, R2; //declare variables
+
+float Xpk; //weighted average variables
+float error, error_old, sum;
+float Kp = 3.5; //guess by trial and error
+float Ki = 0.1; //guess by trial and error
+float Kd = 0.1; //guess by trial and error
+float K = 0.6;//replace this with value found by trial and error; must be <1 so motor change is minor
+float u; //PID output variables
+
+void setup()
+
+{
+
+  Serial.begin(9600);
+
+  Wire.begin();   // join i2c bus (address optional for the master) - on the Arduino NANO the default I2C pins are A4 (SDA), A5 (SCL)
+
+
+  pinMode(L1Pin, INPUT);
+  pinMode(L2Pin, INPUT);
+  pinMode(M1Pin, INPUT);
+  pinMode(M2Pin, INPUT);
+  pinMode(R1Pin, INPUT);
+  pinMode(R2in, INPUT);
+
+}
+//Line Following Solution
+void loop()
+{
+  L1=analogRead(L1Pin)*((3.3/4095.00)-3.3)*-1; //values converted with black as max and white as min. Values are converted to a voltage by personal choice, can remain as a normal sensor output value
+  L2=analogRead(L2Pin)*((3.3/4095.00)-3.3)*-1; //multiply by -1 as currently black is set as min and white is set at max
+  M1=analogRead(M1Pin)*((3.3/4095.00)-3.3)*-1;
+  M2=analogRead(M2Pin)*((3.3/4095.00)-3.3)*-1;
+  R1=analogRead(R1Pin)*((3.3/4095.00)-3.3)*-1;
+  R2=analogRead(R2Pin)*((3.3/4095.00)-3.3)*-1;
+
+  L1 = map (L1, 2.31, 3.3, 0, 3.3); //calibration was done beforehand for min values. Mapping constrains this range between 0 to 3.3 ASK NAT
+  L2 = map (L2, 2.31, 3.3, 0, 3.3); //find values via calibration
+  M1 = map (M1, 2.31, 3.3, 0, 3.3);
+  M2 = map (M2, 2.31, 3.3, 0, 3.3);
+  R1 = map (R1, 2.31, 3.3, 0, 3.3);
+  R2 = map (R2, 2.31, 3.3, 0, 3.3);
+
+  Serial.Println("----"); //print variables to check
+  Serial.Println("Voltage Values");
+  Serial.Print("L1:");
+  Serial.Print (L1);
+  Serial.Print("L2:");
+  Serial.Print (L2);
+  Serial.Print("M1:");
+  Serial.Print (M1);
+  Serial.Print("M2:");
+  Serial.Print (M2);
+  Serial.Print("R1:");
+  Serial.Print (R1);
+  Serial.Print("R2:");
+  Serial.Print (R2);
+  Serial.Println("----");
+
+Line_Following
+//start of PID solution
+ Xpk = ((L1*0.001)+(L2*0.0205)+(M1*0.0310)+(M2*0.0482)+(R1*0.0553)+(R2*0.0856))/(L1+L2+M1+M2+R1+R2);  //replace distane values with actual values. Measure from LHS. DOESNT MATTER CM OR M
+  error_old = error;
+  error = 0.0490 - Xpk; //IN M FOR CENTRE
+  sum = sum + error; 
+  u = (Kp*error)+(Ki*sum)+(Kd*(error - error_old));
+
+  ServoAngle = 75 - u;
+  leftMotor_speed = 255 + (K*u);
+  rightMotor_speed = 159 - (K*u);
+
+  if (u>=-5 && u<=5)
+  {
+    servoAngle = 75;
+    leftMotor_speed = 255;
+    rightMotor_speed = 159;
+  }
+
+ else if (u>5 || u<-5)
+  {
+    servoAngle = 75 - u;
+    leftMotor_speed = 255 + (K*u);
+    rightMotor_speed = 159 - (K*u); 
+  }
+
+  SerialPrintln("Calibration Values:")
+  Serial.Println("----");
+  Serial.Print("Xpk:");
+  Serial.Print("sum:");
+  Serial.Print(sum);
+  Serial.Print("old error:");
+  Serial.Print(error_old);
+  Serial.Print("new error: ");
+  Serial.Print(error);
+  Serial.Print("u:";);
+  Serial.Print(u);
+  Serial.Println("----");
+
+  //end of pid solution
+
+  //start of simple solution
+
+ if (M1>=2.31 && M2>=2.31) //replace all '3.0' values with min value for black for your car
+  {
+    Straight()
+    Forward();
+  }
+
+  
+  else if (M1 >= 2.31 || M2>= 2.31){
+    if (M1<=2.31 && M2>= 2.31)
+    {
+      CW();
+      TurnACW();
+
+    }
+    else if (M1<=2.31 && M2>= 2.31)
+    {
+      ACW();
+      TurnACW()
+
+    }
+
+  }
+
+else if (L1 >= 2.31 || L2>= 2.31)
+{
+  CW();
+  TurnCW();
+}
+
+else if (R1>= 2.31 || R2>= 2.31)
+{
+
+  ACW();
+  TurnCW();
+}
+*/
+
+Transmit_to_arduino();
+}
+
+
+
+
+void Straight()
+{
+  servoAngle=75; //servo default specific to my car is 75 not 90
+  leftMotor_speed=0;
+  rightMotor_speed=0;
+}
+
+void ACW()
+{
+  servoAngle=65;
+  leftMotor_speed=0;
+  rightMotor_speed=0;
+}
+
+void CW()
+{
+  servoAngle = 100;
+  leftMotor_speed=0;
+  rightMotor_speed=0;
+}
+
+void Forward ()
+{
+  servoAngle = 75;
+  leftMotor_speed=255;
+  rightMotor_speed=159;
+}
+
+void TurnACW()
+{
+  servoAngle = 65;
+  leftMotor_speed=255;
+  rightMotor_speed=159;  
+}
+
+void TurnCW()
+{
+  servoAngle = 100;
+  leftMotor_speed=50;
+  rightMotor_speed=150;  
+}
+//end of simple solution
+
+void Transmit_to_arduino(int leftMotor_speed, int rightMotor_speed, int servoAngle)
+
+{
+
+  Wire.beginTransmission(I2C_SLAVE_ADDR); // transmit to device #4
+
+  Wire.write((byte)((leftMotor_speed & 0x0000FF00) >> 8));    // first byte of x, containing bits 16 to 9
+
+  Wire.write((byte)(leftMotor_speed & 0x000000FF));           // second byte of x, containing the 8 LSB - bits 8 to 1
+
+  Wire.write((byte)((rightMotor_speed & 0x0000FF00) >> 8));   // first byte of y, containing bits 16 to 9
+
+  Wire.write((byte)(rightMotor_speed & 0x000000FF));          // second byte of y, containing the 8 LSB - bits 8 to 1
+
+  Wire.write((byte)((servoAngle & 0x0000FF00) >> 8));    // first byte of x, containing bits 16 to 9
+
+  Wire.write((byte)(servoAngle & 0x000000FF));
+
+  Wire.endTransmission();   // stop transmitting
+
+}
+
