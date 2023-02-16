@@ -1,21 +1,19 @@
-#include <WiFi.h>
-#include <PubSubClient.h>
+#include <WiFi.h> //wifi capabilities
+#include <PubSubClient.h> //library for publish and subscribe protocol
 #include <Wire.h>
-#include <Adafruit_BMP280.h>
+#include <Adafruit_BMP280.h> //BMP 280 library
 #include <Adafruit_Sensor.h>
-#define echoPin 33 // attach pin D2 Arduino to pin Echo of HC-SR04
-#define trigPin 32 //attach pin D3 Arduino to pin Trig of HC-SR04
+#define echoPin 33 // attach pin 33 to pin Echo of HC-SR04
+#define trigPin 32 //attach pin 32 to pin Trig of HC-SR04
 
-// Add your required sensor/component libraries here
-// --
 #include <MPU6050_tockn.h>
 #include <Wire.h>
-#define I2C_SLAVE_ADDR 0x04
+#define I2C_SLAVE_ADDR 0x04 //I2C protocol w Arduino Slave
 
-Adafruit_BMP280 bmp;
+Adafruit_BMP280 bmp; //enable BMP-280 protocol
 MPU6050 mpu6050(Wire);
 int x = 0;
-int leftMotor_speed, rightMotor_speed, servoAngle;
+int leftMotor_speed, rightMotor_speed, servoAngle; //declare variables for I2C
 float distance = 0;
 float angle;
 int angle_X,angle_Y,angle_Z;
@@ -34,15 +32,15 @@ float pressure;
 uint8_t temprature_sens_read();*/
 
 // Replace the next variables with your SSID/Password combination
-const char* ssid = "c18amandi"; //CHANGE ME
-const char* password = "DLqyZENdk"; //CHANGE ME 
+const char* ssid = "c18amandi"; 
+const char* password = "DLqyZENdk"; 
 
 // Add your MQTT Broker IP address, example:
 //const char* mqtt_server = "192.168.1.144"; 
-const char* mqtt_server = "192.168.137.42"; //CHANGE ME
+const char* mqtt_server = "192.168.137.42"; //Latest IP address for Raspberry Pi router. Changes every reboot
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+WiFiClient espClient; //declaring ESP-32 as a client
+PubSubClient client(espClient); //publish and subscribe client declared
 long lastMsg = 0;
 char msg[50];
 int value = 0;
@@ -60,9 +58,10 @@ float distance = 0;
   Serial.println(" C");
   delay(1000);
   return C;
-}*/
+}*/ //internal temperature of ESP-32. Not necessary. Only a test
 
 
+//Calculating Angles
 float calcXAngle()
 {
  mpu6050.update();
@@ -141,21 +140,21 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   pinMode(trigPin, OUTPUT); // Sets the trigPin as an OUTPUT
-  pinMode(echoPin, INPUT); 
+  pinMode(echoPin, INPUT); //echoPin as input
   //Serial.begin(9600);
   Wire.begin();
-  mpu6050.begin();
+  mpu6050.begin(); //mpu-9250 begins connection to IMU
   mpu6050.calcGyroOffsets(true);
-  status = bmp.begin();
+  status = bmp.begin(); //BMP-280 begins connecting to IMU
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
                   Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */ //Sampling rates
   TransmitToArduino(0,0,90);
 
 }
- 
+ //Transmit values to arduino function
 void Transmission(int leftMotor_speed, int rightMotor_speed, int servoAngle) {
   Wire.beginTransmission(I2C_SLAVE_ADDR);
   Wire.write((byte)(leftMotor_speed & 0x0000FF00) >> 8);
@@ -174,9 +173,9 @@ void setup_wifi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid, password); //ssid and pw put in to gain access
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED) { //repeatedly prints this when wifi not connected
     delay(500);
     Serial.print(".");
   }
@@ -195,7 +194,7 @@ void callback(char* topic, byte* message, unsigned int length) {
 
   for (int i = 0; i < length; i++) {
     Serial.print((char)message[i]);
-    messageTemp += (char)message[i];
+    messageTemp += (char)message[i]; //input msg from Dashboard to ESP32
   }
   Serial.println();
 
@@ -212,11 +211,11 @@ void callback(char* topic, byte* message, unsigned int length) {
       int newSpeed = messageTemp.toInt();
       leftMotor_speed = newSpeed;
       rightMotor_speed = newSpeed;
-      Transmission(leftMotor_speed,rightMotor_speed,servoAngle);
+      Transmission(leftMotor_speed,rightMotor_speed,servoAngle); //motor control
   }
   if (String(topic) == "esp32/servoAngle") {
       servoAngle = messageTemp.toInt();
-      Transmission(leftMotor_speed,rightMotor_speed,servoAngle);
+      Transmission(leftMotor_speed,rightMotor_speed,servoAngle); //servo control
   }
 }
 
@@ -224,14 +223,14 @@ void callback(char* topic, byte* message, unsigned int length) {
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
+    Serial.print("Attempting MQTT connection..."); 
     // Attempt to connect
     if (client.connect("ESP32Client")) {
       Serial.println("connected");
 
        client.subscribe("esp32/output");
        client.subscribe("esp32/servoAngle");
-       client.subscribe("esp32/motorSpeed");
+       client.subscribe("esp32/motorSpeed"); //categories in dashboard
 
 
     } else {
@@ -253,10 +252,6 @@ void loop() {
   if (now - lastMsg > 5000) {
     lastMsg = now;
 
-    // Add your own code here i.e. sensor measurements, publish topics & subscribe topics for GPIO control
-    // --
-
-    // --
     
     angleX = calcXAngle();
 
@@ -307,5 +302,5 @@ void loop() {
     Serial.print("pressurec19: ");
     Serial.println(presString);
     client.publish("c19pressure", presString);
-  }
+  } //All functions subscribing sensory input to dashboard
 }
