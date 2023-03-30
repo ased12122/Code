@@ -1,0 +1,36 @@
+#include<stdio.h>
+#include<stdlib.h>
+
+int UserResistorInput (char *prompt, float minimum, float maximum ) //copy paste this line for header file
+//prompt refers to r1,r2,r3 values in main
+{
+   int value; //value initially set to 'value' to check if its numerical
+   float x; //value then set to 'x' to check if its within the appropriate range
+    while (1)
+    {
+        fflush (stdin); //clears previous standard input from keyboard
+
+        printf (prompt); //prints prompt taken from main (e.g. 'r1:', 'r2:', 'r3:'
+
+        value = scanf ("%f",&x); //scans whichever value from r1, r2 and r3 that the user is entering and sets it to 'x'
+
+        if (value != 1) //checking if value is numerical
+        {
+            printf ("ERROR: NON NUMERICAL INPUT");
+        }
+
+        else if (x < minimum) //checking if x is less than 1000 Ohms which is the lower limit
+        {
+            printf ("ERROR: VALUE LESS THAN LOWER LIMIT OF 1000 OHMS");
+        }
+        else if(x > maximum) //checking if x exceeds the upper limit of 1000000 Ohms
+        {
+            printf ("ERROR; VALUE EXCEEDS UPPER LIMIT OF 1000000 OHMS");
+        }
+        else
+        {
+            return x; //if x passes the error check, it returns the value to the main to be passed onto the converter function
+        }
+
+    }
+}
