@@ -1,0 +1,51 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include"SDCONVERTER.h" //included header file for converter function
+#include"USERRESISTORINPUT.h" //included header file for user resistor input validation check
+int main ()
+{
+    printf("\t \t---------------");
+    printf("\nDelta and Star Resistive Networks Converter");
+    printf("\nTo convert from Delta to Star, press 1\nTo convert from Star to Delta, press 2\nTo exit the function, press 0");
+    printf("\nWhen choosing resistor values, please restrict them to a range of 1000 to 1000000 Ohms, as this is what is realistic for power electronics networks. \nPlease refrain from entering values such as 'MegaOhms' and simply state the full number instead. \nThank you.");
+    printf("\n\t\t---------------");
+
+ //Starting Menu informing the user of their options
+
+    float r1, r2 ,r3, p1, p2, p3; //declaring resistor input variables and pointer variables in main
+    int Menu_Choice; //declaring the user's menu choice variable
+    float minimum = 1000;
+    float maximum = 1000000; //max and min values declared here so they can be easily changed if necessary
+    //declaring the minimum and maximum resistor values for the converter as its a power electronics network and using smaller values is not realistic
+
+    while (1) //loop for the function asking for user input, checking the choice input and then calling other functions to check the input resistor values and conduct the calculation.
+    {
+      fflush(stdin); //clearing previous "standard input" from keyboard
+      printf ("\nPlease pick an option, 1,2 or 0 :");
+      if (scanf ("%d", &Menu_Choice)!= 1) //simultaneous scanning in menu_choice input and and checking if menu choice is a numerical value
+      {
+          printf ("ERROR: NON NUMERICAL INPUT\n"); //returns error message if not
+      }
+
+      else if (Menu_Choice == 0) //if user chooses to exit function
+      {
+          printf ("EXITING FUNCTION\n");
+          return 0;
+
+      }
+      else if (Menu_Choice==1 || Menu_Choice==2) // choice 1 and 2 are together as the conversion direction is decided by the SDConverter function rather than main
+      {
+          printf ("Enter 3 values:");
+          r1 = UserResistorInput ("\nr1:", minimum, maximum); //"r1:" prompt will repeat until the user enters a suitable number. Same for r2 and r3
+          r2 = UserResistorInput ("\nr2:", minimum, maximum); //Calling the UserResistorInput function and passing the input value, maximum and minimum values
+          r3 = UserResistorInput ("\nr3:", minimum, maximum);
+          SDConverter (r1, r2 ,r3, &p1, &p2, &p3, Menu_Choice); //passing values to the function and then calling the pointers from the function
+          printf ("\nValues: %.2f Ohms, %.2f Ohms, %.2f Ohms" , p1, p2, p3); //printing final values
+      }
+      else
+      {
+          printf ("ERROR: INPUT IS NOT 0, 1 OR 2\n"); //if the values are numerical but not 0,1 or 2 then it will display this
+      }
+    } //While loop loops back and asks for new menu choice and input values
+    return 0;
+}
