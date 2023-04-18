@@ -1,0 +1,94 @@
+#include <Wire.h>
+#include <Servo.h>
+#define servoPin 4
+Servo myservo;   
+
+#define enA 5   //EnableA command line - should be a PWM pin
+#define enB 6   //EnableB command line - should be a PWM pin
+
+#define INa A0  //Channel A direction 
+#define INb A1  //Channel A direction 
+#define INc A2  //Channel B direction 
+#define INd A3 //Channel B direction
+
+void setup() {
+  Serial.begin(9600);// open the serial port at 9600 bps:
+  Wire.begin(0x07); //Set Arduino up as an I2C slave at address 0x07
+  Wire.onRequest(requestEvent); //Prepare to send data
+  Wire.onReceive(receiveEvent); //Prepare to recieve data
+  myservo.attach(servoPin); 
+
+  pinMode(INa, OUTPUT); //defining outputs and inputs for motors
+  pinMode(INb, OUTPUT);
+  pinMode(INc, OUTPUT);
+  pinMode(INd, OUTPUT);
+  pinMode(enA, OUTPUT);
+  pinMode(enB, OUTPUT);  
+}
+
+void loop() {
+}
+
+void requestEvent()
+{
+  unsigned char char_ar[16] = "Hi Raspberry Pi"; //Create String
+  Wire.write(char_ar,16); //Write String to Pi. This is to check I2C comms are working
+}
+
+void receiveEvent(int numBytes){
+  //Set Up Vars
+  int receive_int=0;
+  int count=0;
+  int rightMotor_speed, leftMotor_speed, servoAngle;
+
+  //We'll recieve one byte at a time. Stop when none left
+  while(Wire.available())
+  {
+    char c = Wire.read();    // receive a byte as character
+    //Create Int from the Byte Array
+    receive_int = c << (8 * count) | receive_int;
+    count++;
+  }
+ 
+  servoAngle = 79 + receive_int; //THIS COULD BE CHANGED LATER
+
+  float K = 0.7; //THIS COULD BE CHANGED LATER
+
+  leftMotor_speed = 255+ (K * receive_int);
+  rightMotor_speed = 159-(K * receive_int);
+
+
+  analogWrite(enA, abs(leftMotor_speed));
+  analogWrite(enB, abs(rightMotor_speed));
+
+  myservo.write(servoAngle);
+
+
+  if (leftMotor_speed<0)
+  {
+    digitalWrite(INa, LOW);
+    digitalWrite(INb, HIGH);
+    //Serial.println ("left motor backwards");
+  }
+
+  else 
+  {
+    digitalWrite(INa, HIGH);
+    digitalWrite(INb, LOW);
+    //Serial.println ("left motor forwards");
+  }
+
+  if (rightMotor_speed<0)
+  {
+    digitalWrite(INc, LOW);
+    digitalWrite(INd, HIGH);
+    //Serial.println ("right motor backwards");
+  }
+
+  else
+  {
+    digitalWrite(INc, HIGH);
+    digitalWrite(INd, LOW);
+    //Serial.println ("right motor forwards");
+  }
+}
