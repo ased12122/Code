@@ -1,0 +1,80 @@
+#include <stdio.h> 
+#include <iostream>
+#include "opencv2/core.hpp"
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgproc.hpp"
+#include <opencv2/opencv.hpp>
+
+using namespace std;
+using namespace cv;
+
+int main( )
+{
+    string pic = ("BlueCar.bmp");
+    namedWindow("colour tester");
+    Mat image = imread(pic);
+    Mat image_hsv1;
+    Mat image_hsv2;
+    Mat image_hsv3;
+    cvtColor(image,image_hsv1, COLOR_BGR2HSV);
+    cvtColor(image,image_hsv2, COLOR_BGR2HSV);
+    cvtColor(image,image_hsv3, COLOR_BGR2HSV);
+
+
+    if (image.data == NULL)
+    {
+        cout << "No image found! Check path." << endl;
+        return 1;   //ERROR
+    }
+    else{
+        while(1){
+        Mat bluemask;
+        Scalar lower_blue(90,50,70);
+        Scalar upper_blue(128,255,255);
+        inRange(image_hsv1,lower_blue,upper_blue,bluemask);
+
+        Mat redmask1;
+        Scalar lower_red1(20,0,0);
+        Scalar upper_red1(108,255,255);
+        inRange(image_hsv2,lower_red1,upper_red1,redmask1);
+
+
+        Mat greenmask;
+        Scalar lower_green(36,50,70);
+        Scalar upper_green(89,255,255);
+        inRange(image_hsv3,lower_green,upper_green,greenmask);
+
+
+
+
+        imshow("image", image);
+        imshow("blue", bluemask);
+        imshow("red1",redmask1);
+        imshow("green",greenmask);
+
+        double blueratio = cv::countNonZero(bluemask) / (double)(image.size().height * image.size().width);
+        double redratio = cv::countNonZero(redmask1) / (double)(image.size().height * image.size().width);
+        double greenratio = cv::countNonZero(greenmask) / (double)(image.size().height * image.size().width);
+
+        string color;
+        if (redratio>blueratio){
+            color = "r";
+        }
+        else if (blueratio>greenratio){
+            color = "b";
+        }
+        else if (greenratio>redratio){
+            color = "g";
+        }
+        std::cout << "colour = "<< color<< endl;
+        //std::cout <<"ratios" << redratio<<","<<greenratio<<","<<blueratio<<endl;
+        char key = (char) waitKey(30);
+        if (key == 'q' || key == 27)
+        {
+            break;
+        }
+        }
+    }
+    return(0);
+}
+
