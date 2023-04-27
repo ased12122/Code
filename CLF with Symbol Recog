@@ -1,0 +1,375 @@
+// Include files for required libraries 
+#include <stdio.h>
+#include <iostream>
+#include "opencv_aee.hpp"
+#include "main.hpp"    // You can use this file for declaring defined values and functions
+#include "pi2c.h"
+
+
+
+
+using namespace std;
+void setup(void)
+{
+    setupCamera(320, 240);  // Enable the camera for OpenCV
+}
+
+
+
+
+int symbolreg()
+{
+    setup();    // Call a setup function to prepare IO and devices
+    cv::namedWindow("Photo");   // Create a GUI window called photo
+
+    std::cout<<"fff"<<std::endl;
+    while(true)    // Main loop to perform image processing
+    {
+        Mat frame;
+        // Can't capture frames without a camera attached. Use static images instead
+
+        std::cout<<"fff"<<std::endl;
+
+        while(frame.empty())
+
+        {
+        frame = captureFrame();
+        }
+            // Capture a frame from the camera and store in a new matrix variable
+        cv::flip(frame,frame,0);
+        cv::flip(frame,frame,1);
+        cv::imshow("Photo", frame); //Display the image in the window
+        Mat black;
+        Mat framecopy = frame.clone(); // create a copy of the input frame
+        Mat image;
+        cvtColor(frame, image, COLOR_BGR2HSV);  //convert image to hsv
+
+        // Define the color range to select pink objects in the image
+        Scalar lower_range = Scalar(145,30,30);
+        Scalar upper_range = Scalar(165,245,245);
+
+        // Create a binary mask with the selected pink color range
+        Mat pink_mask;
+        inRange(image, lower_range, upper_range, pink_mask);              
+
+
+
+           std::vector<std::vector<Point>> img_symbol_contours;
+             Mat CDisp = frame;
+              findContours(pink_mask,img_symbol_contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE); //find contours in mask
+      
+              // draw the contours
+              drawContours(CDisp, img_symbol_contours, -1, Scalar(0, 0, 255), 2); //contours drawn. A frame with contours is displayed separately for practical purposes
+      
+              // transform the perspective of the image
+              std::vector<Point2f> corners;
+              for (int i = 0; i < img_symbol_contours.size(); i++)
+              {
+                  if (img_symbol_contours[i].size() > 4)
+                  {
+                      approxPolyDP(img_symbol_contours[i], corners, arcLength(img_symbol_contours[i], true) * 0.02, true);
+                      if (corners.size() == 4)
+                      {
+                          // draw the contours
+                          drawContours(frame, img_symbol_contours, i, Scalar(0, 255, 0), 2);
+                          // draw the corners
+                          for (int j = 0; j < corners.size(); j++)
+                          {
+                              circle(frame, corners[j], 5, Scalar(0, 0, 255), 2);
+                          }
+                      }
+                  }
+              }
+      
+              // check nif there are 4 corners
+              if (corners.size() == 4)
+              {
+                  // change the perspective of pink_mask so that the 4 corners found are the new corners
+                  Mat perspective_transform = getPerspectiveTransform(corners, std::vector<Point2f>{Point2f(0, 0), Point2f(0, 100), Point2f(100, 100), Point2f(100, 0)});
+                  warpPerspective(pink_mask, pink_mask, perspective_transform, Size(100, 100)); //perspective changed
+                  // scale up the image to 350x350
+                  resize(pink_mask, pink_mask, Size(350, 350));
+                  // find the contours of the image saving them as image_symbol_contours
+                  std::vector<std::vector<Point>> image_symbol_contours;
+                  findContours(pink_mask, image_symbol_contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+                  // draw the contours
+                  drawContours(pink_mask, image_symbol_contours, -1, Scalar(255, 255, 255), 2);
+      
+                  // make a 13 item array of Mat objects to store the symbols
+                  Mat symbols[13];
+                  symbols[0] = imread("Circle.png");
+                  symbols[1] = imread("Star.png");
+                  // symbols 1-4 are the same image but roated 90 degrees
+                  rotate(symbols[1], symbols[2], ROTATE_90_CLOCKWISE);
+                  rotate(symbols[1], symbols[3], ROTATE_180);
+                  rotate(symbols[1], symbols[4], ROTATE_90_COUNTERCLOCKWISE);
+                  symbols[5] = imread("Triangle.png");
+                  rotate(symbols[5], symbols[6], ROTATE_90_CLOCKWISE);
+                  rotate(symbols[5], symbols[7], ROTATE_180);
+                  rotate(symbols[5], symbols[8], ROTATE_90_COUNTERCLOCKWISE);
+                  symbols[9] = imread("Umbrella.png");
+                  rotate(symbols[9], symbols[10], ROTATE_90_CLOCKWISE);
+                  rotate(symbols[9], symbols[11], ROTATE_180);
+                  rotate(symbols[9], symbols[12], ROTATE_90_COUNTERCLOCKWISE);
+                  String symbol_names[13] = {"Circle", "Star", "Star", "Star", "Star", "Triangle", "Triangle", "Triangle", "Triangle", "Umbrella", "Umbrella", "Umbrella", "Umbrella"};
+      
+                  int similarity[13];
+      
+                  for (int i = 0; i < 13; i++)
+                  {
+                      // convert the symbols to hsv and black and white
+                      cvtColor(symbols[i], symbols[i], COLOR_BGR2HSV);
+                      inRange(symbols[i], Scalar(150, 50, 50), Scalar(180, 255, 255), symbols[i]);
+      
+                      // find the contours of the symbols
+                      std::vector<std::vector<Point>> symbol_contours;
+                      findContours(symbols[i], symbol_contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+      
+                      // draw the contours
+                      drawContours(symbols[i], symbol_contours, -1, Scalar(255, 255, 255), 2);
+      
+                      // use compare() to compare symbols[i] and pink_mask
+                      Mat result;
+                      compare(pink_mask, symbols[i], result, CMP_EQ);
+                      // store the number of pixels that are the same in a list
+                      int pixel_count = countNonZero(result);
+                      // convert the pixel count to a percentage
+                      pixel_count = (pixel_count / 350.0) * 100;
+                      similarity[i] = pixel_count;
+                  }
+                  // find which symbol has the most similar pixels
+                  int max = 0;
+                  int max_index = 0;
+                  for (int i = 0; i < 13; i++)
+                  {
+                      if (similarity[i] > max)
+                      {
+                          max = similarity[i];
+                          max_index = i;
+                      }
+                  }
+                  // check if the percentage is above 75%
+                  if (max > 75)
+                  {
+                      // display the name of the symbol that is most similar on the frame
+                      putText(frame, symbol_names[max_index], Point(0, 50), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255), 2);
+                      if (symbol_name[max_index] == ("Circle"))
+                    {
+                        return 2;
+                    }
+                    else if (symbol_name[max_index] == ("Star"))
+                    {
+                        return 4;
+                    }
+                     else if (symbol_name[max_index] == ("Triangle"))
+                    {
+                        return 5;
+                    }
+                     else if (symbol_name[max_index] == ("Umbrella"))
+                    {
+                        return 3;
+                    }
+                  }
+                  else
+                  {
+                      // display "Unknown" on the frame
+                      return 1;
+                      putText(frame, "Unknown", Point(0, 50), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255), 2);
+                  }
+              }
+      
+              cv::imshow("Photo", frame); // Display the image in the window
+              // show all the images
+              imshow("pink", pink_mask);
+               imshow("contours", CDisp);
+               imshow("Transformed Image", perspective_transform);
+      `       
+      
+              int key = cv::waitKey(1); // Wait 1ms for a keypress (required to update windows)
+      
+              key = (key == 255) ? -1 : key; // Check if the ESC key has been pressed
+              if (key == 27)
+                  break;
+          }
+      
+          closeCV(); // Disable the camera and close any windows
+      
+          return 0;
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+int main( int argc, char** argv )
+{
+
+    setup();    // Call a setup function to prepare IO and devices
+
+    cv::namedWindow("Photo");   // Create a GUI window called photo
+
+    while(true)    // Main loop to perform image processing
+    {
+        Mat frame;
+
+        // Can't capture frames without a camera attached. Use static images instead
+        while(frame.empty())
+        {
+        frame = captureFrame();
+        }
+            // Capture a frame from the camera and store in a new matrix variable
+        cv::flip(frame,frame,0);
+        cv::flip(frame,frame,1);
+        cv::imshow("Photo", frame); //Display the image in the window
+
+        Mat colour; //matrix for storing colour mask
+        cvtColor (frame, colour, COLOR_BGR2HSV);
+
+
+        int choice == symbolreg();
+
+        if (choice==1) //Black
+        {
+            Scalar min_Range = Scalar (0,0,0);
+            Scalar max_Range = Scalar (179,255,51);
+        }
+
+        else if (choice==2) //Red
+        {
+            Scalar min_Range = Scalar (160,35,40);
+            Scalar max_Range = Scalar (185,245,245);
+        }
+
+        else if (choice==3) //Yellow
+        {
+            Scalar min_Range = Scalar (20,100,50);
+            Scalar max_Range = Scalar (40,255,255);
+        }
+
+        else if (choice==4) //Green
+        {
+            Scalar min_Range = Scalar (75,55,40);
+            Scalar max_Range = Scalar (95,255,255);
+        }
+
+        else if (choice==5) //Blue
+        {
+            Scalar min_Range = Scalar (97,40,23);
+            Scalar max_Range = Scalar (120,255,250);
+        }
+        else //Default set to black
+        {
+            Scalar min_Range = Scalar (0,0,0);
+            Scalar max_Range = Scalar (179,255,51);
+        }
+
+
+        inRange(colour, min_Range, max_Range, colour); //isolating particular colour mask
+
+
+// colour mask image is then split into strips to be analysed individually. CHANGE THIS WHEN I SEND U UPDATED CODE
+
+       // Mat L5 = colour (Range(0,150), Range(0, 32));
+        //Mat L4 = colour (Range(0,240), Range(32, 64));
+        Mat L3 = colour (Range(0,150), Range(64, 96));
+        Mat L2 = colour (Range(0,150), Range(96, 128));
+        Mat L1 = colour (Range(0,150), Range(128, 160));
+        //Mat R5 = colour (Range(0,240), Range(160, 192));
+        //Mat R4 = colour (Range(0,240), Range(192, 224));
+        Mat R3 = colour (Range(0,150), Range(224, 256));
+        Mat R2 = colour (Range(0,150), Range(256, 288));
+        Mat R1 = colour (Range(0,150), Range(288, 320));
+
+
+
+//Arbitrary Weightings used for PID. Assumes the width of on strip as '1'. Therefore distances from centre of central strip to the centre of whichever strip is taken
+        //int l5 = -4.5;
+        //int l4 = -3.5;
+        int l3 = -2.5;
+        int l2 = -1.5;
+        int l1 = -0.5;
+
+        int r1 = 0.5;
+        int r2 = 1.5;
+        int r3 = 2.5;
+        //int r4 = 3.5;
+        //int r5 = 4.5;
+
+
+
+
+//Taking a count of non-white pixels of each strip
+        int l5n = countNonZero(L5);
+        imshow ("L5", L5p);
+       int l4n = countNonZero(L4);
+        imshow ("L4", L4p);
+        int l3n = countNonZero(L3);
+        imshow ("L3", L3p);
+        int l2n = countNonZero(L2);
+        imshow ("L2", L2p);
+        int l1n = countNonZero(L1);
+        imshow ("L1", L1p);
+        int r5n = countNonZero(R5);
+        imshow ("R5", R5p);
+        int r4n = countNonZero(R4);
+        imshow ("R4", R4p);
+        int r3n = countNonZero(R3);
+        imshow ("R3", R3p);
+        int r2n = countNonZero(R2);
+        imshow ("R2", R2p);
+        int r1n = countNonZero(R1);
+        imshow ("R1", R1p);
+
+
+        int leftMotor_speed, rightMotor_speed, servoAngle;
+        float Kp = 1; //guess by trial and error
+        float Ki = 0.01; //guess by trial and error. CHANGE WITH UPDATED CODE
+        float Kd = 0.05; //guess by trial and error
+        float error, error_old, sum, u, den,num;
+
+        error_old = error;
+     //PID calc
+        num = (l5n*l5+l4n*l4+l3n*l3+l2n*l2+l1n*l1+r5n*r5+r4n*r4+r3n*r3+r2n*r2+r1n*r1);
+        den = (l5n+l4n+l3n+l2n+l1n+r5n+r4n+r3n+r2n+r1n+1);
+        error = num / den;
+        if (den != 0) //preventing issue of code making an error when denominator becomes 0
+        {
+         error = num / den;
+        }
+        else{
+
+        error = num;
+        }
+        sum = sum + error;
+        u=(Kp*error)+(Ki*sum)+(Kd*(error-error_old));
+
+
+        //arduino.i2cWriteArduinoInt(u);
+        Pi2c arduino(7); //Create a new object "arduino" using address "0x07"
+        char receive[16]; //Create a buffer of char (single bytes) for the data
+        //Receive from the Arduino and put the contents into the "receive" char array
+        arduino.i2cRead(receive,16);
+        //Print out what the Arduino is sending...
+        std::cout << "Arduino Says: " << receive << std::endl;
+
+
+        //Send an 16 bit integer
+        arduino.i2cWriteArduinoInt(u); //u value transmitted to arduino where the servo angle and motor speed adjustments are made
+
+
+        int key = cv::waitKey(1);   // Wait 1ms for a keypress
+
+        key = (key==255) ? -1 : key;    // Check if the ESC key has been pressed
+        if (key == 27)
+            break;
+           }
+           closeCV();  // Disable the camera and close any windows
+           return 0;
+}
